@@ -19,7 +19,6 @@
     "speed" : 8,
     "cuthighedge":true,
     "cutlowedge":false,
-    "toolwidth" : 0.2,
     "presilence" : 3.0,
     "offset" : 0.0
 }
