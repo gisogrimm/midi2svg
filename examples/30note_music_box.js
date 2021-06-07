@@ -17,8 +17,8 @@
     "maxnotelength" : 2,
     "mingaplength" : 6,
     "speed" : 8,
-    "cuthighedge":true,
-    "cutlowedge":false,
+    "cuthighedge": false,
+    "cutlowedge": false,
     "presilence" : 3.0,
-    "offset" : 0.0
+    "offset" : 12.5
 }
