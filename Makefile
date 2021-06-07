@@ -15,3 +15,5 @@ bin/%: src/%.cc
 %/.dir:
 	mkdir -p $(dir $@) && touch $@
 
+clean:
+	rm -Rf bin
