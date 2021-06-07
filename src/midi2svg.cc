@@ -3,15 +3,11 @@
 #include <list>
 #include <map>
 
-#include <xercesc/dom/DOM.hpp>
-#include <xercesc/framework/LocalFileFormatTarget.hpp>
-#include <xercesc/framework/MemBufFormatTarget.hpp>
-#include <xercesc/framework/MemBufInputSource.hpp>
-#include <xercesc/framework/StdOutFormatTarget.hpp>
-#include <xercesc/parsers/XercesDOMParser.hpp>
-#include <xercesc/util/OutOfMemoryException.hpp>
-#include <xercesc/util/PlatformUtils.hpp>
-#include <xercesc/util/XMLUni.hpp>
+#include <cairomm/cairomm.h>
+#include <cairomm/context.h>
+#include <cairomm/enums.h>
+#include <cairomm/fontface.h>
+#include <cairomm/surface.h>
 
 #include "json.hpp"
 
@@ -32,64 +28,12 @@ std::string to_string(double x)
   return ctmp;
 }
 
-class xml_init_t {
-public:
-  xml_init_t() { xercesc::XMLPlatformUtils::Initialize(); };
-  ~xml_init_t() { xercesc::XMLPlatformUtils::Terminate(); };
-};
-
-static xml_init_t xercesc_init;
-
-std::basic_string<XMLCh> str2wstr(const char* text)
-{
-  XMLCh* resarr(xercesc::XMLString::transcode(text));
-  std::basic_string<XMLCh> result(resarr);
-  xercesc::XMLString::release(&resarr);
-  return result;
-}
-
-std::basic_string<XMLCh> str2wstr(const std::string& text)
-{
-  XMLCh* resarr(xercesc::XMLString::transcode(text.c_str()));
-  std::basic_string<XMLCh> result(resarr);
-  xercesc::XMLString::release(&resarr);
-  return result;
-}
-
-std::string wstr2str(const XMLCh* text)
-{
-  char* resarr(xercesc::XMLString::transcode(text));
-  std::string result(resarr);
-  xercesc::XMLString::release(&resarr);
-  return result;
-}
-
 std::string get_file_contents(const std::string& fname)
 {
   std::ifstream t(fname);
   std::string str((std::istreambuf_iterator<char>(t)),
                   std::istreambuf_iterator<char>());
   return str;
-}
-
-void node_set_attribute(xercesc::DOMElement* node, const std::string& name,
-                        const std::string& value)
-{
-  TASCAR_ASSERT(node);
-  node->setAttribute(str2wstr(name).c_str(), str2wstr(value).c_str());
-}
-
-xercesc::DOMElement* node_add_child(xercesc::DOMElement* node,
-                                    const std::string& name)
-{
-  TASCAR_ASSERT(node);
-  return dynamic_cast<xercesc::DOMElement*>(node->appendChild(
-      node->getOwnerDocument()->createElement(str2wstr(name).c_str())));
-}
-
-void node_set_text(xercesc::DOMElement* node, const std::string& text)
-{
-  node->setTextContent(str2wstr(text).c_str());
 }
 
 // robust json value function with default value:
@@ -119,12 +63,12 @@ public:
   midi2svg_t(const std::string& cfgfile);
   void read(const std::string& midifile);
   void output_svg();
-  void generate_svg_notes();
+  void generate_svg(const std::string& svgname, double offset_mm);
 
 private:
   bool hasNotes(const smf::MidiEventList& eventlist);
   smf::MidiFile midifile;
-  xercesc::DOMDocument* doc;
+  // xercesc::DOMDocument* doc;
   std::map<int, double> pitches;
   double paperwidth;     // mm
   double maxpaperlength; // mm
@@ -133,7 +77,11 @@ private:
   double minnotelength;  // mm
   double maxnotelength;  // mm
   double mingaplength;   // mm
-  double toolwidth;      // mm
+  bool cuthighedge;
+  bool cutlowedge;
+  double offset;        // mm
+  double presilence;    // seconds
+  double musicduration; // seconds
   std::list<note_t> notes;
   std::string filename;
 };
@@ -146,7 +94,8 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
       minnotelength(2),    // mm
       maxnotelength(2),    // mm
       mingaplength(6),     // mm
-      toolwidth(0.7)       // mm
+      cuthighedge(false), cutlowedge(false), offset(0.0), presilence(0),
+      musicduration(0)
 {
   // parse config file
   std::string config(get_file_contents(cfgfile));
@@ -159,7 +108,10 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
   PARSEJS(minnotelength);
   PARSEJS(maxnotelength);
   PARSEJS(mingaplength);
-  PARSEJS(toolwidth);
+  PARSEJS(cuthighedge);
+  PARSEJS(cutlowedge);
+  PARSEJS(offset);
+  PARSEJS(presilence);
   nlohmann::json js_pitches(js_cfg["pitches"]);
   if(js_pitches.is_array()) {
     for(auto pitchrange : js_pitches) {
@@ -178,39 +130,19 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
       }
     }
   }
-  // prepare svg header
-  xercesc::DOMImplementation* impl(
-      xercesc::DOMImplementationRegistry::getDOMImplementation(
-          str2wstr("XML 1.0").c_str()));
-  TASCAR_ASSERT(impl);
-  // initialize svg header:
-  doc = impl->createDocument(0, str2wstr("svg").c_str(), NULL);
-  auto svg_root(doc->getDocumentElement());
-  node_set_attribute(svg_root, "version", "1.1");
-  node_set_attribute(svg_root, "xmlns", "http://www.w3.org/2000/svg");
-  node_set_attribute(svg_root, "xmlns:xlink", "http://www.w3.org/1999/xlink");
-  node_set_attribute(svg_root, "viewBox",
-                     "0 0 " + to_string(maxpaperlength) + " " +
-                         to_string(paperwidth + toolwidth));
-  node_set_attribute(svg_root, "width", to_string(maxpaperlength) + "mm");
-  node_set_attribute(svg_root, "height",
-                     to_string(paperwidth + toolwidth) + "mm");
 }
 
 void midi2svg_t::output_svg()
 {
-  auto serial(doc->getImplementation()->createLSSerializer());
-  auto config(serial->getDomConfig());
-  config->setParameter(str2wstr("format-pretty-print").c_str(), true);
-  xercesc::MemBufFormatTarget target;
-  xercesc::DOMLSOutput* pDomLsOutput(
-      doc->getImplementation()->createLSOutput());
-  pDomLsOutput->setByteStream(&target);
-  serial->write(doc, pDomLsOutput);
-  std::string retv((char*)target.getRawBuffer());
-  delete pDomLsOutput;
-  delete serial;
-  std::cout << retv << std::endl;
+  double pagestart(0);
+  uint32_t page(0);
+  while(pagestart < musicduration * speed) {
+    char ctmp[1024];
+    sprintf(ctmp, "%s_%03d.svg", filename.c_str(), page);
+    generate_svg(ctmp, pagestart);
+    pagestart += maxpaperlength;
+    ++page;
+  }
 }
 
 void midi2svg_t::read(const std::string& midi_file)
@@ -225,19 +157,34 @@ void midi2svg_t::read(const std::string& midi_file)
       for(int kevent = 0; kevent < eventlist.size(); ++kevent) {
         auto& event(eventlist[kevent]);
         if(event.isNoteOn()) {
-          note_t note(
-              {event.getP1(), event.getDurationInSeconds(), event.seconds});
-          notes.push_back(note);
-          // note.debug();
+          note_t note({event.getP1(), event.getDurationInSeconds(),
+                       event.seconds + presilence});
+          if(pitches.find(note.pitch) != pitches.end())
+            notes.push_back(note);
+          else
+            std::cerr << "Warning: note " << note.pitch << " at "
+                      << note.time - presilence << " not covered.\n";
+          musicduration = std::max(musicduration, note.time + note.duration);
         }
       }
     }
   }
 }
 
-void midi2svg_t::generate_svg_notes()
+void midi2svg_t::generate_svg(const std::string& svgname, double offset_mm)
 {
-  auto svg_root(doc->getDocumentElement());
+  double scale(72.0 / 25.4001);
+  double w(maxpaperlength * scale);
+  double h((paperwidth + offset) * scale);
+  auto surface(Cairo::SvgSurface::create(svgname, w, h));
+  auto cr(Cairo::Context::create(surface));
+  cr->scale(scale, scale);
+  // cr->translate(0, -offset);
+  cr->set_line_width(0.1);
+  cr->set_font_size(4);
+  cr->set_source_rgb(0, 0, 0);
+  // create notes:
+  cr->save();
   for(auto note : notes) {
     if(pitches.find(note.pitch) != pitches.end()) {
       double y(pitches[note.pitch]);
@@ -247,36 +194,63 @@ void midi2svg_t::generate_svg_notes()
         len -= mingaplength;
       len = std::min(len, maxnotelength);
       len = std::max(len, minnotelength);
-      auto svg_rect(node_add_child(svg_root, "rect"));
-      node_set_attribute(svg_rect, "x", to_string(x));
-      node_set_attribute(
-          svg_rect, "y",
-          to_string(paperwidth - y + 0.5 * toolwidth - 0.5 * notewidth));
-      node_set_attribute(svg_rect, "width",
-                         to_string(std::max(0.0, len - toolwidth)));
-      node_set_attribute(svg_rect, "height",
-                         to_string(std::max(0.0, notewidth - toolwidth)));
+      double x2(x + len);
+      if((x2 > offset_mm) || (x < offset_mm + maxpaperlength)) {
+        x -= offset_mm;
+        x2 -= offset_mm;
+        x = std::max(0.0, std::min(maxpaperlength, x));
+        x2 = std::max(0.0, std::min(maxpaperlength, x2));
+        len = x2 - x;
+        if(len > 0) {
+          cr->rectangle(x, paperwidth - y - 0.5 * notewidth, std::max(0.0, len),
+                        std::max(0.0, notewidth));
+          cr->fill();
+        }
+      }
     }
   }
-  auto svg_line1(node_add_child(svg_root, "line"));
-  node_set_attribute(svg_line1, "x1", "0");
-  node_set_attribute(svg_line1, "y1", to_string(-0.5 * toolwidth));
-  node_set_attribute(svg_line1, "x2", to_string(maxpaperlength));
-  node_set_attribute(svg_line1, "y2", to_string(-0.5 * toolwidth));
-  node_set_attribute(svg_line1, "stroke", "black");
-  auto svg_line2(node_add_child(svg_root, "line"));
-  node_set_attribute(svg_line2, "x1", "0");
-  node_set_attribute(svg_line2, "y1", to_string(paperwidth + 0.5 * toolwidth));
-  node_set_attribute(svg_line2, "x2", to_string(maxpaperlength));
-  node_set_attribute(svg_line2, "y2", to_string(paperwidth + 0.5 * toolwidth));
-  node_set_attribute(svg_line2, "stroke", "black");
-  auto svg_name(node_add_child(svg_root, "text"));
-  node_set_attribute(svg_name,"x","4");
-  node_set_attribute(svg_name,"y",to_string(paperwidth-4));
-  node_set_text(svg_name,filename);
-  //node_set_attribute(svg_name,"stroke","#700");
-  node_set_attribute(svg_name,"fill","#700");
-  node_set_attribute(svg_name,"font-size","6");
+  cr->restore();
+  // cut edges:
+  cr->save();
+  if(cuthighedge) {
+    cr->move_to(0, 0);
+    cr->line_to(maxpaperlength, 0);
+  }
+  if(cutlowedge) {
+    cr->move_to(0, paperwidth);
+    cr->line_to(maxpaperlength, paperwidth);
+  }
+  cr->stroke();
+  cr->restore();
+  // page name:
+  cr->save();
+  cr->set_source_rgb(1, 0, 0);
+  cr->move_to(2, paperwidth - 2);
+  cr->text_path(svgname);
+  cr->stroke();
+  cr->move_to(maxpaperlength, paperwidth);
+  cr->line_to(maxpaperlength, paperwidth - 8);
+  cr->move_to(maxpaperlength - 20, paperwidth - 4);
+  cr->line_to(maxpaperlength, paperwidth - 4);
+  cr->move_to(maxpaperlength - 6, paperwidth - 8);
+  cr->line_to(maxpaperlength, paperwidth - 4);
+  cr->line_to(maxpaperlength - 6, paperwidth);
+  cr->stroke();
+  cr->restore();
+  // crop marks:
+  cr->save();
+  cr->set_source_rgb(1, 0, 0);
+  cr->move_to(0, paperwidth);
+  cr->line_to(2.0, paperwidth);
+  cr->move_to(0, 0);
+  cr->line_to(2.0, 0);
+  if(offset > 0) {
+    cr->move_to(0, paperwidth + offset);
+    cr->line_to(2.0, paperwidth + offset);
+  }
+  cr->stroke();
+  cr->restore();
+  cr->show_page();
 }
 
 bool midi2svg_t::hasNotes(const smf::MidiEventList& eventlist)
@@ -299,8 +273,8 @@ int main(int argc, char** argv)
   }
   midi2svg_t m2s(argv[1]);
   m2s.read(argv[2]);
-  m2s.generate_svg_notes();
   m2s.output_svg();
+  // m2s.generate_svg("page0.svg", 0);
   return 0;
 }
 

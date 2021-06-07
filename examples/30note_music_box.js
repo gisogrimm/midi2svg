@@ -17,5 +17,9 @@
     "maxnotelength" : 2,
     "mingaplength" : 6,
     "speed" : 8,
-    "toolwidth" : 0.2
+    "cuthighedge":true,
+    "cutlowedge":false,
+    "toolwidth" : 0.2,
+    "presilence" : 3.0,
+    "offset" : 0.0
 }
