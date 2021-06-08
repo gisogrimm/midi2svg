@@ -12,7 +12,7 @@
     ],
     "paperwidth" : 70,
     "maxlength" : 210,
-    "notewidth" : 2,
+    "notewidth" : 1.8,
     "minnotelength" : 2,
     "maxnotelength" : 2,
     "mingaplength" : 6,

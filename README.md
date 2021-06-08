@@ -2,10 +2,10 @@
 
 ## Dependencies
 
-libxerces-c, midifile (sub-module)
+cairomm, midifile (sub-module)
 
 ````
-sudo apt install libxerces-c-dev
+sudo apt install libcairomm-1.0-dev
 ````
 
 ## Building
