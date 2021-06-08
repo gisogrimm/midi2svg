@@ -228,13 +228,9 @@ void midi2svg_t::generate_svg(const std::string& svgname, double offset_mm)
   cr->move_to(2, paperwidth - 2);
   cr->text_path(svgname);
   cr->stroke();
-  cr->move_to(maxpaperlength, paperwidth);
-  cr->line_to(maxpaperlength, paperwidth - 8);
-  cr->move_to(maxpaperlength - 20, paperwidth - 4);
-  cr->line_to(maxpaperlength, paperwidth - 4);
-  cr->move_to(maxpaperlength - 6, paperwidth - 8);
-  cr->line_to(maxpaperlength, paperwidth - 4);
-  cr->line_to(maxpaperlength - 6, paperwidth);
+  cr->set_source_rgb(0, 0, 0);
+  cr->move_to(maxpaperlength, paperwidth - 3);
+  cr->line_to(maxpaperlength, paperwidth - 6);
   cr->stroke();
   cr->restore();
   // crop marks:
