@@ -86,6 +86,94 @@ private:
   std::string filename;
 };
 
+std::string notename_de( int pitch, bool flat = true )
+{
+  auto d(div(pitch,12));
+  std::string retv("c---");
+  switch( d.rem ){
+  case 0 : retv = "c"; break;
+  case 1 : if( flat ) retv = "des"; else retv = "cis"; break;
+  case 2 : retv = "d"; break;
+  case 3 : if( flat ) retv = "es"; else retv = "dis"; break;
+  case 4 : retv = "e"; break;
+  case 5 : retv = "f"; break;
+  case 6 : if( flat ) retv = "ges"; else retv = "fis"; break;
+  case 7 : retv = "g"; break;
+  case 8 : if( flat ) retv = "as"; else retv = "gis"; break;
+  case 9 : retv = "a"; break;
+  case 10 : if( flat ) retv = "b"; else retv = "ais"; break;
+  case 11 : retv = "h"; break;
+  }
+  if( d.quot < 4 ){
+    retv[0] -= 32;
+    if( d.quot < 3 )
+      retv += std::to_string(3-d.quot);
+  }else{
+    if( d.quot > 4 )
+      for( int okt=0;okt<d.quot-4;++okt)
+	retv += "'";
+  }
+  return retv;
+}
+
+int name_de2pitch( const std::string& n )
+{
+  for( int k=0;k<127;++k){
+    if( notename_de(k)==n )
+      return k;
+    if( notename_de(k,false)==n )
+      return k;
+  }
+  return 0;
+}
+
+std::string notename_en( int pitch, bool flat = true )
+{
+  auto d(div(pitch,12));
+  std::string retv("c---");
+  switch( d.rem ){
+  case 0 : retv = "C"; break;
+  case 1 : if( flat ) retv = "Db"; else retv = "C#"; break;
+  case 2 : retv = "D"; break;
+  case 3 : if( flat ) retv = "Eb"; else retv = "D#"; break;
+  case 4 : retv = "E"; break;
+  case 5 : retv = "F"; break;
+  case 6 : if( flat ) retv = "Gb"; else retv = "F#"; break;
+  case 7 : retv = "G"; break;
+  case 8 : if( flat ) retv = "Ab"; else retv = "G#"; break;
+  case 9 : retv = "A"; break;
+  case 10 : if( flat ) retv = "Bb"; else retv = "A#"; break;
+  case 11 : retv = "B"; break;
+  }
+  retv += std::to_string(d.quot-1);
+  return retv;
+}
+
+
+int name_en2pitch( const std::string& n )
+{
+  for( int k=0;k<127;++k){
+    if( notename_en(k)==n )
+      return k;
+    if( notename_en(k,false)==n )
+      return k;
+  }
+  return 0;
+}
+
+std::string pitch2name( int pitch )
+{
+  std::string retv(notename_en( pitch ));
+  std::string retvalt(notename_en( pitch, false) );
+  if( retv != retvalt )
+    retv += "/"+retvalt;
+  std::string dretv(notename_de( pitch ));
+  std::string dretvalt(notename_de( pitch, false) );
+  if( dretv != dretvalt )
+    dretv += "/"+dretvalt;
+  return retv + " " + dretv;
+}
+
 midi2svg_t::midi2svg_t(const std::string& cfgfile)
     : paperwidth(70),      // mm
       maxpaperlength(210), // mm
@@ -119,17 +207,40 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
       int pend(0);
       double pos0(0);
       double deltapos(1);
-      parse_js_value(pitchrange, "start", pstart);
-      parse_js_value(pitchrange, "end", pend);
       parse_js_value(pitchrange, "p0", pos0);
       parse_js_value(pitchrange, "dp", deltapos);
-      if(pstart != 0) {
-        for(int pitch = pstart; pitch <= pend; ++pitch) {
-          pitches[pitch] = pos0 + (pitch - pstart) * deltapos;
+      if(!(pitchrange["start"].is_null() || pitchrange["end"].is_null())) {
+        parse_js_value(pitchrange, "start", pstart);
+        parse_js_value(pitchrange, "end", pend);
+        if(pstart != 0) {
+          for(int pitch = pstart; pitch <= pend; ++pitch) {
+            pitches[pitch] = pos0 + (pitch - pstart) * deltapos;
+          }
         }
+      }
+      if( pitchrange["names_de"].is_array() ){
+	size_t k(0);
+	for( auto name : pitchrange["names_de"] ){
+	  pitches[name_de2pitch(name)] = pos0 + k*deltapos;
+	  ++k;
+	}
+      }
+      if( pitchrange["names_en"].is_array() ){
+	size_t k(0);
+	for( auto name : pitchrange["names_en"] ){
+	  pitches[name_en2pitch(name)] = pos0 + k*deltapos;
+	  ++k;
+	}
       }
     }
   }
+  size_t k(0);
+  for(auto pitch : pitches) {
+    ++k;
+    std::cout << k << ". " << pitch2name(pitch.first) << " at " << pitch.second << " mm\n";
+  }
+  if(pitches.empty())
+    throw std::runtime_error("no pitches defined");
 }
 
 void midi2svg_t::output_svg()
@@ -162,7 +273,7 @@ void midi2svg_t::read(const std::string& midi_file)
           if(pitches.find(note.pitch) != pitches.end())
             notes.push_back(note);
           else
-            std::cerr << "Warning: note " << note.pitch << " at "
+            std::cerr << "Warning: note " << pitch2name(note.pitch) << " at "
                       << note.time - presilence << " not covered.\n";
           musicduration = std::max(musicduration, note.time + note.duration);
         }
