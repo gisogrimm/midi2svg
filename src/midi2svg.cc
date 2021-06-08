@@ -79,98 +79,177 @@ private:
   double mingaplength;   // mm
   bool cuthighedge;
   bool cutlowedge;
+  bool cutend;
   double offset;        // mm
   double presilence;    // seconds
+  double postsilence;   // seconds
   double musicduration; // seconds
   std::list<note_t> notes;
   std::string filename;
 };
 
-std::string notename_de( int pitch, bool flat = true )
+std::string notename_de(int pitch, bool flat = true)
 {
-  auto d(div(pitch,12));
+  auto d(div(pitch, 12));
   std::string retv("c---");
-  switch( d.rem ){
-  case 0 : retv = "c"; break;
-  case 1 : if( flat ) retv = "des"; else retv = "cis"; break;
-  case 2 : retv = "d"; break;
-  case 3 : if( flat ) retv = "es"; else retv = "dis"; break;
-  case 4 : retv = "e"; break;
-  case 5 : retv = "f"; break;
-  case 6 : if( flat ) retv = "ges"; else retv = "fis"; break;
-  case 7 : retv = "g"; break;
-  case 8 : if( flat ) retv = "as"; else retv = "gis"; break;
-  case 9 : retv = "a"; break;
-  case 10 : if( flat ) retv = "b"; else retv = "ais"; break;
-  case 11 : retv = "h"; break;
+  switch(d.rem) {
+  case 0:
+    retv = "c";
+    break;
+  case 1:
+    if(flat)
+      retv = "des";
+    else
+      retv = "cis";
+    break;
+  case 2:
+    retv = "d";
+    break;
+  case 3:
+    if(flat)
+      retv = "es";
+    else
+      retv = "dis";
+    break;
+  case 4:
+    retv = "e";
+    break;
+  case 5:
+    retv = "f";
+    break;
+  case 6:
+    if(flat)
+      retv = "ges";
+    else
+      retv = "fis";
+    break;
+  case 7:
+    retv = "g";
+    break;
+  case 8:
+    if(flat)
+      retv = "as";
+    else
+      retv = "gis";
+    break;
+  case 9:
+    retv = "a";
+    break;
+  case 10:
+    if(flat)
+      retv = "b";
+    else
+      retv = "ais";
+    break;
+  case 11:
+    retv = "h";
+    break;
   }
-  if( d.quot < 4 ){
+  if(d.quot < 4) {
     retv[0] -= 32;
-    if( d.quot < 3 )
-      retv += std::to_string(3-d.quot);
-  }else{
-    if( d.quot > 4 )
-      for( int okt=0;okt<d.quot-4;++okt)
-	retv += "'";
+    if(d.quot < 3)
+      retv += std::to_string(3 - d.quot);
+  } else {
+    if(d.quot > 4)
+      for(int okt = 0; okt < d.quot - 4; ++okt)
+        retv += "'";
   }
   return retv;
 }
 
-int name_de2pitch( const std::string& n )
+int name_de2pitch(const std::string& n)
 {
-  for( int k=0;k<127;++k){
-    if( notename_de(k)==n )
+  for(int k = 0; k < 127; ++k) {
+    if(notename_de(k) == n)
       return k;
-    if( notename_de(k,false)==n )
+    if(notename_de(k, false) == n)
       return k;
   }
   return 0;
 }
 
-std::string notename_en( int pitch, bool flat = true )
+std::string notename_en(int pitch, bool flat = true)
 {
-  auto d(div(pitch,12));
+  auto d(div(pitch, 12));
   std::string retv("c---");
-  switch( d.rem ){
-  case 0 : retv = "C"; break;
-  case 1 : if( flat ) retv = "Db"; else retv = "C#"; break;
-  case 2 : retv = "D"; break;
-  case 3 : if( flat ) retv = "Eb"; else retv = "D#"; break;
-  case 4 : retv = "E"; break;
-  case 5 : retv = "F"; break;
-  case 6 : if( flat ) retv = "Gb"; else retv = "F#"; break;
-  case 7 : retv = "G"; break;
-  case 8 : if( flat ) retv = "Ab"; else retv = "G#"; break;
-  case 9 : retv = "A"; break;
-  case 10 : if( flat ) retv = "Bb"; else retv = "A#"; break;
-  case 11 : retv = "B"; break;
+  switch(d.rem) {
+  case 0:
+    retv = "C";
+    break;
+  case 1:
+    if(flat)
+      retv = "Db";
+    else
+      retv = "C#";
+    break;
+  case 2:
+    retv = "D";
+    break;
+  case 3:
+    if(flat)
+      retv = "Eb";
+    else
+      retv = "D#";
+    break;
+  case 4:
+    retv = "E";
+    break;
+  case 5:
+    retv = "F";
+    break;
+  case 6:
+    if(flat)
+      retv = "Gb";
+    else
+      retv = "F#";
+    break;
+  case 7:
+    retv = "G";
+    break;
+  case 8:
+    if(flat)
+      retv = "Ab";
+    else
+      retv = "G#";
+    break;
+  case 9:
+    retv = "A";
+    break;
+  case 10:
+    if(flat)
+      retv = "Bb";
+    else
+      retv = "A#";
+    break;
+  case 11:
+    retv = "B";
+    break;
   }
-  retv += std::to_string(d.quot-1);
+  retv += std::to_string(d.quot - 1);
   return retv;
 }
 
-
-int name_en2pitch( const std::string& n )
+int name_en2pitch(const std::string& n)
 {
-  for( int k=0;k<127;++k){
-    if( notename_en(k)==n )
+  for(int k = 0; k < 127; ++k) {
+    if(notename_en(k) == n)
       return k;
-    if( notename_en(k,false)==n )
+    if(notename_en(k, false) == n)
       return k;
   }
   return 0;
 }
 
-std::string pitch2name( int pitch )
+std::string pitch2name(int pitch)
 {
-  std::string retv(notename_en( pitch ));
-  std::string retvalt(notename_en( pitch, false) );
-  if( retv != retvalt )
-    retv += "/"+retvalt;
-  std::string dretv(notename_de( pitch ));
-  std::string dretvalt(notename_de( pitch, false) );
-  if( dretv != dretvalt )
-    dretv += "/"+dretvalt;
+  std::string retv(notename_en(pitch));
+  std::string retvalt(notename_en(pitch, false));
+  if(retv != retvalt)
+    retv += "/" + retvalt;
+  std::string dretv(notename_de(pitch));
+  std::string dretvalt(notename_de(pitch, false));
+  if(dretv != dretvalt)
+    dretv += "/" + dretvalt;
   return retv + " " + dretv;
 }
 
@@ -182,8 +261,8 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
       minnotelength(2),    // mm
       maxnotelength(2),    // mm
       mingaplength(6),     // mm
-      cuthighedge(false), cutlowedge(false), offset(0.0), presilence(0),
-      musicduration(0)
+      cuthighedge(false), cutlowedge(false), cutend(false), offset(0.0),
+      presilence(0), postsilence(0), musicduration(0)
 {
   // parse config file
   std::string config(get_file_contents(cfgfile));
@@ -198,8 +277,10 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
   PARSEJS(mingaplength);
   PARSEJS(cuthighedge);
   PARSEJS(cutlowedge);
+  PARSEJS(cutend);
   PARSEJS(offset);
   PARSEJS(presilence);
+  PARSEJS(postsilence);
   nlohmann::json js_pitches(js_cfg["pitches"]);
   if(js_pitches.is_array()) {
     for(auto pitchrange : js_pitches) {
@@ -218,26 +299,27 @@ midi2svg_t::midi2svg_t(const std::string& cfgfile)
           }
         }
       }
-      if( pitchrange["names_de"].is_array() ){
-	size_t k(0);
-	for( auto name : pitchrange["names_de"] ){
-	  pitches[name_de2pitch(name)] = pos0 + k*deltapos;
-	  ++k;
-	}
+      if(pitchrange["names_de"].is_array()) {
+        size_t k(0);
+        for(auto name : pitchrange["names_de"]) {
+          pitches[name_de2pitch(name)] = pos0 + k * deltapos;
+          ++k;
+        }
       }
-      if( pitchrange["names_en"].is_array() ){
-	size_t k(0);
-	for( auto name : pitchrange["names_en"] ){
-	  pitches[name_en2pitch(name)] = pos0 + k*deltapos;
-	  ++k;
-	}
+      if(pitchrange["names_en"].is_array()) {
+        size_t k(0);
+        for(auto name : pitchrange["names_en"]) {
+          pitches[name_en2pitch(name)] = pos0 + k * deltapos;
+          ++k;
+        }
       }
     }
   }
   size_t k(0);
   for(auto pitch : pitches) {
     ++k;
-    std::cout << k << ". " << pitch2name(pitch.first) << " at " << pitch.second << " mm\n";
+    std::cout << k << ". " << pitch2name(pitch.first) << " at " << pitch.second
+              << " mm\n";
   }
   if(pitches.empty())
     throw std::runtime_error("no pitches defined");
@@ -280,6 +362,8 @@ void midi2svg_t::read(const std::string& midi_file)
       }
     }
   }
+  if(musicduration > 0)
+    musicduration += postsilence;
 }
 
 void midi2svg_t::generate_svg(const std::string& svgname, double offset_mm)
@@ -331,6 +415,10 @@ void midi2svg_t::generate_svg(const std::string& svgname, double offset_mm)
     cr->move_to(0, paperwidth);
     cr->line_to(maxpaperlength, paperwidth);
   }
+  if(cutend && (musicduration * speed < offset_mm + maxpaperlength)) {
+    cr->move_to(musicduration * speed - offset_mm, 0);
+    cr->line_to(musicduration * speed - offset_mm, paperwidth);
+  }
   cr->stroke();
   cr->restore();
   // page name:
@@ -339,10 +427,12 @@ void midi2svg_t::generate_svg(const std::string& svgname, double offset_mm)
   cr->move_to(2, paperwidth - 2);
   cr->text_path(svgname);
   cr->stroke();
-  cr->set_source_rgb(0, 0, 0);
-  cr->move_to(maxpaperlength, paperwidth - 3);
-  cr->line_to(maxpaperlength, paperwidth - 6);
-  cr->stroke();
+  if(musicduration * speed >= offset_mm + maxpaperlength) {
+    cr->set_source_rgb(0, 0, 0);
+    cr->move_to(maxpaperlength, paperwidth - 3);
+    cr->line_to(maxpaperlength, paperwidth - 6);
+    cr->stroke();
+  }
   cr->restore();
   // crop marks:
   cr->save();

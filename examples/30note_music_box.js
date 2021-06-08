@@ -20,5 +20,7 @@
     "cuthighedge": false,
     "cutlowedge": false,
     "presilence" : 3.0,
+    "postsilence" : 3.0,
+    "cutend" : true,
     "offset" : 12.5
 }
